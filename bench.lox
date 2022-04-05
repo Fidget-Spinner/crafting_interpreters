@@ -1,0 +1,5 @@
+var start = clock();
+for (var counter = 0; counter < 1000000; counter = counter + 1) {
+}
+var end = clock();
+print end-start;

@@ -1,0 +1,9 @@
+print "hello world!";
+
+var a = 1;
+a = a + 1;
+print a;
+
+for (var counter = 0; counter < 10; counter = counter + 1) {
+ print counter;
+}
