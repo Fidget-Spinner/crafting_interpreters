@@ -1,33 +1,36 @@
 use crate::token::*;
+use std::rc::Rc;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Expr {
     Assign {
         name: RcToken,
-        value: Box<Expr>,
+        value: RcExpr,
     },
     Binary {
-        left: Box<Expr>,
+        left: RcExpr,
         operator: RcToken,
-        right: Box<Expr>,
+        right: RcExpr,
     },
     Call {
-        callee: Box<Expr>,
+        callee: RcExpr,
         paren: RcToken,
-        arguments: Vec<Box<Expr>>,
+        arguments: Vec<RcExpr>,
     },
-    Grouping(Box<Expr>),
+    Grouping(RcExpr),
     Literal(Literal),
     Logical {
-        left: Box<Expr>,
+        left: RcExpr,
         operator: RcToken,
-        right: Box<Expr>,
+        right: RcExpr,
     },
     Unary {
         operator: RcToken,
-        right: Box<Expr>,
+        right: RcExpr,
     },
     Variable {
         name: RcToken,
     },
 }
+
+pub type RcExpr = Rc<Expr>;

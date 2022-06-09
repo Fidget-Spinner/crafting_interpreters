@@ -1,8 +1,8 @@
 use crate::environment::Environment;
-use crate::expr::Expr;
+use crate::expr::{Expr, RcExpr};
 use crate::lox::LoxError;
 use crate::lox_function::LoxFunction;
-use crate::stmt::Stmt;
+use crate::stmt::{RcStmt, Stmt};
 use crate::token::*;
 use crate::token_type::TokenType;
 use dyn_clone::{clone_trait_object, DynClone};
@@ -16,7 +16,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 #[derive(Clone, Debug)]
 pub enum ExprValue {
     Literal(Literal),
-    LoxCallable(Box<dyn LoxCallable>),
+    LoxCallable(Rc<dyn LoxCallable>),
 }
 
 impl ExprValue {
@@ -121,7 +121,7 @@ impl Interpreter {
         let mut globals = Environment::new(None);
         globals.define(
             String::from("clock"),
-            Some(Rc::new(ExprValue::LoxCallable(Box::new(Clock())))),
+            Some(Rc::new(ExprValue::LoxCallable(Rc::from(Clock())))),
         );
         let global_env = Rc::new(RefCell::new(globals));
         Interpreter {
@@ -129,22 +129,22 @@ impl Interpreter {
             globals: global_env,
         }
     }
-    pub fn interpret(&mut self, statements: Vec<Box<Stmt>>) -> VoidResult {
+    pub fn interpret(&mut self, statements: Vec<RcStmt>) -> VoidResult {
         for statement in statements {
             self.execute(statement)?;
         }
         Ok(())
     }
-    fn execute(&mut self, stmt: Box<Stmt>) -> VoidResult {
-        match *stmt {
+    fn execute(&mut self, stmt: RcStmt) -> VoidResult {
+        match &*stmt {
             Stmt::Block { statements } => {
                 self.execute_block(
-                    statements,
+                    Rc::clone(statements),
                     Rc::new(RefCell::new(Environment::new(Some(&self.environment)))),
                 )?;
             }
             Stmt::Expression { expr } => {
-                self.evaluate(expr)?;
+                self.evaluate(Rc::clone(expr))?;
             }
             Stmt::Function {
                 ref name,
@@ -158,7 +158,7 @@ impl Interpreter {
                 };
                 self.environment.borrow_mut().define(
                     name_copy,
-                    Some(Rc::from(ExprValue::LoxCallable(Box::new(function)))),
+                    Some(Rc::from(ExprValue::LoxCallable(Rc::from(function)))),
                 );
             }
             Stmt::If {
@@ -166,25 +166,25 @@ impl Interpreter {
                 then_branch,
                 else_branch,
             } => {
-                if Interpreter::is_truthy(&self.evaluate(condition)?) {
-                    self.execute(then_branch)?;
-                } else if else_branch.is_some() {
-                    self.execute(else_branch.unwrap())?;
+                if Interpreter::is_truthy(&self.evaluate(Rc::clone(condition))?) {
+                    self.execute(Rc::clone(then_branch))?;
+                } else if let Some(els) = else_branch {
+                    self.execute(Rc::clone(els))?;
                 }
             }
             Stmt::Print { expr } => {
-                let value = self.evaluate(expr)?;
+                let value = self.evaluate(Rc::clone(expr))?;
                 println!("{}", Interpreter::stringify(value));
             }
             Stmt::Return { keyword: _, value } => {
                 return Err(LoxError::ReturnValue {
-                    value: self.evaluate(value)?,
+                    value: self.evaluate(Rc::clone(value))?,
                 });
             }
             Stmt::Var { name, initializer } => {
                 let mut value = None;
                 if let Some(expr) = initializer {
-                    value = Some(self.evaluate(expr)?);
+                    value = Some(self.evaluate(Rc::clone(expr))?);
                 }
                 (*self.environment)
                     .borrow_mut()
@@ -193,7 +193,7 @@ impl Interpreter {
             Stmt::While { condition, body } => {
                 // @TODO: This is uneccessary cloning, use Rc or something.
                 while Interpreter::is_truthy(&self.evaluate(condition.clone())?) {
-                    self.execute(body.clone())?;
+                    self.execute(Rc::clone(body))?;
                 }
             }
         }
@@ -201,13 +201,13 @@ impl Interpreter {
     }
     pub fn execute_block(
         &mut self,
-        statements: Vec<Box<Stmt>>,
+        statements: Rc<Vec<RcStmt>>,
         environment: Rc<RefCell<Environment>>,
     ) -> VoidResult {
         let previous = Rc::clone(&self.environment);
         self.environment = environment;
-        for statement in statements {
-            if let Err(e) = self.execute(statement) {
+        for statement in statements.iter() {
+            if let Err(e) = self.execute(Rc::clone(statement)) {
                 self.environment = previous;
                 return Err(e);
             }
@@ -215,10 +215,10 @@ impl Interpreter {
         self.environment = previous;
         Ok(())
     }
-    fn evaluate(&mut self, expr: Box<Expr>) -> ExprValueResult {
-        match *expr {
+    fn evaluate(&mut self, expr: RcExpr) -> ExprValueResult {
+        match &*expr {
             Expr::Assign { name, value } => {
-                let value = self.evaluate(value)?;
+                let value = self.evaluate(Rc::clone(value))?;
                 self.environment
                     .borrow_mut()
                     .assign(&name, Some(Rc::clone(&value)))?;
@@ -228,24 +228,24 @@ impl Interpreter {
                 left,
                 operator,
                 right,
-            } => self.interpret_expr_binary(left, operator, right),
+            } => self.interpret_expr_binary(Rc::clone(left), Rc::clone(operator), Rc::clone(right)),
             Expr::Call {
                 callee,
                 paren,
                 arguments,
             } => {
-                let eval_callee = self.evaluate(callee)?;
+                let eval_callee = self.evaluate(Rc::clone(callee))?;
 
                 let mut eval_arguments: Vec<Rc<ExprValue>> = Vec::with_capacity(arguments.len());
                 let arg_len = arguments.len();
                 for argument in arguments.into_iter() {
-                    eval_arguments.push(self.evaluate(argument)?);
+                    eval_arguments.push(self.evaluate(Rc::clone(argument))?);
                 }
                 let function = match &*eval_callee.borrow() {
                     ExprValue::LoxCallable(function) => function.clone(),
                     _ => {
                         return Err(LoxError::RuntimeError {
-                            token: paren,
+                            token: Rc::clone(paren),
                             message: String::from("Can only call functions and classes."),
                         });
                     }
@@ -253,20 +253,20 @@ impl Interpreter {
                 let arity = function.arity();
                 if arg_len != arity {
                     return Err(LoxError::RuntimeError {
-                        token: paren,
+                        token: Rc::clone(paren),
                         message: format!("Expected {} arguments but got {}.", arity, arg_len),
                     });
                 }
                 Ok(Rc::from(function.call(self, eval_arguments)?))
             }
-            Expr::Grouping(expr) => self.evaluate(expr),
-            Expr::Literal(literal) => Ok(Rc::new(ExprValue::Literal(literal))),
+            Expr::Grouping(expr) => self.evaluate(Rc::clone(expr)),
+            Expr::Literal(literal) => Ok(Rc::new(ExprValue::Literal(literal.clone()))),
             Expr::Logical {
                 left,
                 operator,
                 right,
             } => {
-                let left = self.evaluate(left)?;
+                let left = self.evaluate(Rc::clone(left))?;
                 if matches!(operator.type_, TokenType::OR) {
                     if Interpreter::is_truthy(&left) {
                         return Ok(Rc::clone(&left));
@@ -277,13 +277,15 @@ impl Interpreter {
                         return Ok(Rc::clone(&left));
                     }
                 }
-                Ok(self.evaluate(right)?)
+                Ok(self.evaluate(Rc::clone(right))?)
             }
-            Expr::Unary { operator, right } => self.interpret_expr_unary(operator, right),
+            Expr::Unary { operator, right } => {
+                self.interpret_expr_unary(Rc::clone(operator), Rc::clone(right))
+            }
             Expr::Variable { name } => self.environment.borrow_mut().get(&name),
         }
     }
-    fn interpret_expr_unary(&mut self, operator: RcToken, right: Box<Expr>) -> ExprValueResult {
+    fn interpret_expr_unary(&mut self, operator: RcToken, right: RcExpr) -> ExprValueResult {
         let res = self.evaluate(right)?;
         return match operator.type_ {
             TokenType::MINUS => {
@@ -300,9 +302,9 @@ impl Interpreter {
     }
     fn interpret_expr_binary(
         &mut self,
-        left: Box<Expr>,
+        left: RcExpr,
         operator: RcToken,
-        right: Box<Expr>,
+        right: RcExpr,
     ) -> ExprValueResult {
         let res_left = self.evaluate(left)?;
         let res_right = self.evaluate(right)?;

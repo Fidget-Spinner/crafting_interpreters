@@ -1,9 +1,9 @@
 use super::token_type::TokenType;
 #[allow(unused_imports)]
 use std::any::Any;
+use std::rc::Rc;
 #[allow(unused_imports)]
 use std::str;
-use std::rc::Rc;
 
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]

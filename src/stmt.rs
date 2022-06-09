@@ -1,37 +1,40 @@
-use crate::expr::Expr;
+use crate::expr::RcExpr;
 use crate::token::RcToken;
+use std::rc::Rc;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Stmt {
     Block {
-        statements: Vec<Box<Stmt>>,
+        statements: Rc<Vec<RcStmt>>,
     },
     Expression {
-        expr: Box<Expr>,
+        expr: RcExpr,
     },
     Function {
         name: RcToken,
         params: Vec<RcToken>,
-        body: Vec<Box<Stmt>>,
+        body: Rc<Vec<RcStmt>>,
     },
     If {
-        condition: Box<Expr>,
-        then_branch: Box<Stmt>,
-        else_branch: Option<Box<Stmt>>,
+        condition: RcExpr,
+        then_branch: RcStmt,
+        else_branch: Option<RcStmt>,
     },
     Print {
-        expr: Box<Expr>,
+        expr: RcExpr,
     },
     Return {
         keyword: RcToken,
-        value: Box<Expr>,
+        value: RcExpr,
     },
     Var {
         name: RcToken,
-        initializer: Option<Box<Expr>>,
+        initializer: Option<RcExpr>,
     },
     While {
-        condition: Box<Expr>,
-        body: Box<Stmt>,
+        condition: RcExpr,
+        body: RcStmt,
     },
 }
+
+pub type RcStmt = Rc<Stmt>;

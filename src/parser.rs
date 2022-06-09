@@ -1,6 +1,6 @@
 use crate::expr::*;
 use crate::lox::{Lox, LoxError};
-use crate::stmt::Stmt;
+use crate::stmt::{RcStmt, Stmt};
 use crate::token::*;
 use crate::token_type::TokenType::*;
 use std::fmt::Display;
@@ -63,10 +63,10 @@ impl Parser<'_> {
             current: 0,
         }
     }
-    pub fn parse(&mut self) -> Result<Vec<Box<Stmt>>, LoxError<String>> {
-        let mut statements: Vec<Box<Stmt>> = Vec::new();
+    pub fn parse(&mut self) -> Result<Vec<RcStmt>, LoxError<String>> {
+        let mut statements: Vec<RcStmt> = Vec::new();
         while !self.is_at_end() {
-            statements.push(Box::new(self.declaration()?));
+            statements.push(Rc::from(self.declaration()?));
         }
         Ok(statements)
     }
@@ -107,7 +107,7 @@ impl Parser<'_> {
         }
         if match_!(self, LEFT_BRACE) {
             return Ok(Stmt::Block {
-                statements: self.block()?,
+                statements: Rc::from(self.block()?),
             });
         }
         self.expression_statement()
@@ -137,12 +137,12 @@ impl Parser<'_> {
 
         if let Some(increment) = increment {
             body = Stmt::Block {
-                statements: vec![
-                    Box::new(body),
-                    Box::new(Stmt::Expression {
-                        expr: Box::new(increment),
+                statements: Rc::from(vec![
+                    Rc::from(body),
+                    Rc::from(Stmt::Expression {
+                        expr: Rc::from(increment),
                     }),
-                ],
+                ]),
             }
         }
 
@@ -150,12 +150,12 @@ impl Parser<'_> {
             condition = Some(Expr::Literal(Literal::BOOL(true)));
         }
         body = Stmt::While {
-            condition: Box::new(condition.unwrap()),
-            body: Box::new(body),
+            condition: Rc::from(condition.unwrap()),
+            body: Rc::from(body),
         };
         if initializer.is_some() {
             body = Stmt::Block {
-                statements: vec![Box::new(initializer.unwrap()), Box::new(body)],
+                statements: Rc::from(vec![Rc::from(initializer.unwrap()), Rc::from(body)]),
             };
         }
         Ok(body)
@@ -167,13 +167,13 @@ impl Parser<'_> {
 
         let then_branch = self.statement()?;
         let else_branch = if match_!(self, ELSE) {
-            Some(Box::new(self.statement()?))
+            Some(Rc::from(self.statement()?))
         } else {
             None
         };
         Ok(Stmt::If {
-            condition: Box::new(condition),
-            then_branch: Box::new(then_branch),
+            condition: Rc::from(condition),
+            then_branch: Rc::from(then_branch),
             else_branch,
         })
     }
@@ -181,7 +181,7 @@ impl Parser<'_> {
         let value = self.expression()?;
         consume!(self, SEMICOLON, "Expect ';' after value.")?;
         Ok(Stmt::Print {
-            expr: Box::new(value),
+            expr: Rc::from(value),
         })
     }
     fn return_statement(&mut self) -> StmtResult {
@@ -195,14 +195,14 @@ impl Parser<'_> {
         consume!(self, SEMICOLON, "Expect ';' after return value.")?;
         Ok(Stmt::Return {
             keyword,
-            value: Box::new(value),
+            value: Rc::from(value),
         })
     }
     fn var_declaration(&mut self) -> StmtResult {
         let name = consume!(self, IDENTIFIER, "Expect variable name.")?;
-        let mut initializer: Option<Box<Expr>> = None;
+        let mut initializer: Option<RcExpr> = None;
         if match_!(self, EQUAL) {
-            initializer = Some(Box::new(self.expression()?));
+            initializer = Some(Rc::from(self.expression()?));
         }
         consume!(self, SEMICOLON, "Expect ';' after variable declaration.")?;
         Ok(Stmt::Var { name, initializer })
@@ -213,15 +213,15 @@ impl Parser<'_> {
         consume!(self, RIGHT_PAREN, "Expect ')' after condition.")?;
         let body = self.statement()?;
         Ok(Stmt::While {
-            condition: Box::new(condition),
-            body: Box::new(body),
+            condition: Rc::from(condition),
+            body: Rc::from(body),
         })
     }
     fn expression_statement(&mut self) -> StmtResult {
         let expr = self.expression()?;
         consume!(self, SEMICOLON, "Expect ';' after expression.")?;
         Ok(Stmt::Expression {
-            expr: Box::new(expr),
+            expr: Rc::from(expr),
         })
     }
     fn function(&mut self, kind: &'static str) -> StmtResult {
@@ -249,13 +249,13 @@ impl Parser<'_> {
         Ok(Stmt::Function {
             name,
             params: parameters,
-            body,
+            body: Rc::from(body),
         })
     }
-    fn block(&mut self) -> Result<Vec<Box<Stmt>>, LoxError<String>> {
-        let mut statements = Vec::<Box<Stmt>>::new();
+    fn block(&mut self) -> Result<Vec<RcStmt>, LoxError<String>> {
+        let mut statements = Vec::<RcStmt>::new();
         while !check!(self, RIGHT_BRACE) && !self.is_at_end() {
-            statements.push(Box::new(self.declaration()?));
+            statements.push(Rc::from(self.declaration()?));
         }
         consume!(self, RIGHT_BRACE, "Expect '}' after block.")?;
         Ok(statements)
@@ -269,7 +269,7 @@ impl Parser<'_> {
                 Expr::Variable { name } => {
                     return Ok(Expr::Assign {
                         name,
-                        value: Box::new(value),
+                        value: Rc::from(value),
                     });
                 }
                 _ => self
@@ -285,9 +285,9 @@ impl Parser<'_> {
             let operator = self.previous();
             let right = self.and()?;
             expr = Expr::Logical {
-                left: Box::new(expr),
+                left: Rc::from(expr),
                 operator,
-                right: Box::new(right),
+                right: Rc::from(right),
             };
         }
         Ok(expr)
@@ -298,9 +298,9 @@ impl Parser<'_> {
             let operator = self.previous();
             let right = self.equality()?;
             expr = Expr::Logical {
-                left: Box::new(expr),
+                left: Rc::from(expr),
                 operator,
-                right: Box::new(right),
+                right: Rc::from(right),
             };
         }
         Ok(expr)
@@ -311,9 +311,9 @@ impl Parser<'_> {
             let operator = self.previous();
             let right = self.comparison()?;
             expr = Expr::Binary {
-                left: Box::new(expr),
+                left: Rc::from(expr),
                 operator,
-                right: Box::new(right),
+                right: Rc::from(right),
             };
         }
         Ok(expr)
@@ -330,9 +330,9 @@ impl Parser<'_> {
             let operator = self.previous();
             let right = self.term()?;
             expr = Expr::Binary {
-                left: Box::new(expr),
+                left: Rc::from(expr),
                 operator,
-                right: Box::new(right),
+                right: Rc::from(right),
             };
         }
         Ok(expr)
@@ -343,9 +343,9 @@ impl Parser<'_> {
             let operator = self.previous();
             let right = self.factor()?;
             expr = Expr::Binary {
-                left: Box::new(expr),
+                left: Rc::from(expr),
                 operator,
-                right: Box::new(right),
+                right: Rc::from(right),
             };
         }
         Ok(expr)
@@ -356,9 +356,9 @@ impl Parser<'_> {
             let operator = self.previous();
             let right = self.unary()?;
             expr = Expr::Binary {
-                left: Box::new(expr),
+                left: Rc::from(expr),
                 operator,
-                right: Box::new(right),
+                right: Rc::from(right),
             };
         }
         Ok(expr)
@@ -369,13 +369,13 @@ impl Parser<'_> {
             let right = self.unary()?;
             return Ok(Expr::Unary {
                 operator,
-                right: Box::new(right),
+                right: Rc::from(right),
             });
         }
         self.call()
     }
     fn finish_call(&mut self, callee: Expr) -> ExprResult {
-        let mut arguments = Vec::<Box<Expr>>::new();
+        let mut arguments = Vec::<RcExpr>::new();
         if !check!(self, RIGHT_PAREN) {
             loop {
                 if arguments.len() >= 255 {
@@ -384,7 +384,7 @@ impl Parser<'_> {
                         "Can't have more than 255 arguments",
                     ));
                 }
-                arguments.push(Box::new(self.expression()?));
+                arguments.push(Rc::from(self.expression()?));
                 if !match_!(self, COMMA) {
                     break;
                 }
@@ -393,7 +393,7 @@ impl Parser<'_> {
         let paren = consume!(self, RIGHT_PAREN, "Expect ')' after arguments.")?;
 
         Ok(Expr::Call {
-            callee: Box::new(callee),
+            callee: Rc::from(callee),
             paren,
             arguments,
         })
@@ -431,7 +431,7 @@ impl Parser<'_> {
         if match_!(self, LEFT_PAREN) {
             let expr = self.expression()?;
             consume!(self, RIGHT_PAREN, "Expect ')' after expression.")?;
-            return Ok(Expr::Grouping(Box::new(expr)));
+            return Ok(Expr::Grouping(Rc::from(expr)));
         }
         Err(Parser::error(
             self.peek(),

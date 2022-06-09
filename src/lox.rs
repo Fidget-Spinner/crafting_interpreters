@@ -96,9 +96,9 @@ impl Lox {
     }
     fn run(&mut self, source: Vec<u8>) {
         let mut scanner = Scanner::new(source);
-        match scanner.scan_tokens() {
-            Err(err) => self.error(err),
-            Ok(_) => {}
+        if let Err(err) = scanner.scan_tokens() {
+            self.error(err);
+            return;
         }
         let tokens = scanner.tokens;
         let mut parser = Parser::new(self, tokens);
