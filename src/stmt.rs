@@ -1,5 +1,5 @@
 use crate::expr::Expr;
-use crate::token::Token;
+use crate::token::RcToken;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Stmt {
@@ -10,8 +10,8 @@ pub enum Stmt {
         expr: Box<Expr>,
     },
     Function {
-        name: Box<Token>,
-        params: Vec<Box<Token>>,
+        name: RcToken,
+        params: Vec<RcToken>,
         body: Vec<Box<Stmt>>,
     },
     If {
@@ -23,11 +23,11 @@ pub enum Stmt {
         expr: Box<Expr>,
     },
     Return {
-        keyword: Box<Token>,
+        keyword: RcToken,
         value: Box<Expr>,
     },
     Var {
-        name: Box<Token>,
+        name: RcToken,
         initializer: Option<Box<Expr>>,
     },
     While {

@@ -1,6 +1,6 @@
 use crate::interpreter::ExprValue;
 use crate::lox::LoxError;
-use crate::token::{Literal, Token};
+use crate::token::{Literal, RcToken};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -40,7 +40,7 @@ impl Environment {
     pub fn define(&mut self, name: String, value: OptionExprValue) {
         insert!(self, name, value);
     }
-    pub fn get(&self, name: &Token) -> Result<Rc<ExprValue>, LoxError<String>> {
+    pub fn get(&self, name: &RcToken) -> Result<Rc<ExprValue>, LoxError<String>> {
         if self.values.contains_key(&name.lexeme) {
             return Ok(Rc::clone(self.values.get(&name.lexeme).unwrap()));
         }
@@ -50,11 +50,15 @@ impl Environment {
         }
 
         Err(LoxError::RuntimeError {
-            token: name.clone(),
+            token: Rc::clone(name),
             message: format!("Undefined variable '{}'.", name.lexeme),
         })
     }
-    pub fn assign(&mut self, name: &Token, value: OptionExprValue) -> Result<(), LoxError<String>> {
+    pub fn assign(
+        &mut self,
+        name: &RcToken,
+        value: OptionExprValue,
+    ) -> Result<(), LoxError<String>> {
         if self.values.contains_key(&name.lexeme) {
             insert!(self, name.lexeme.to_owned(), value);
             return Ok(());
@@ -66,7 +70,7 @@ impl Environment {
         }
 
         Err(LoxError::RuntimeError {
-            token: name.clone(),
+            token: Rc::clone(name),
             message: format!("Undefined variable '{}'.", name.lexeme),
         })
     }

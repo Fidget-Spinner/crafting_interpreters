@@ -11,15 +11,15 @@ use std::rc::Rc;
 use crate::interpreter::{ExprValue, Interpreter};
 use crate::parser::Parser;
 use crate::scanner::Scanner;
-use crate::token::Token;
+use crate::token::RcToken;
 use crate::token_type::TokenType;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum LoxError<T: Display> {
     ScanError { line: usize, message: T },
-    ParseError { token: Token, message: T },
-    RuntimeError { token: Token, message: T },
+    ParseError { token: RcToken, message: T },
+    RuntimeError { token: RcToken, message: T },
     ReturnValue { value: Rc<ExprValue> },
 }
 
@@ -97,23 +97,16 @@ impl Lox {
     fn run(&mut self, source: Vec<u8>) {
         let mut scanner = Scanner::new(source);
         match scanner.scan_tokens() {
-            Ok(tokens) => {
-                let mut parser = Parser::new(
-                    self,
-                    (*tokens
-                        .into_iter()
-                        .map(|token| Box::new(token.clone()))
-                        .collect::<Vec<Box<Token>>>())
-                    .to_vec(),
-                );
-                match parser.parse() {
-                    Ok(expr) => {
-                        // println!("{}", ast_to_string(Box::new(expr)))
-                        if let Err(e) = self.interpreter.interpret(expr) {
-                            self.error(e)
-                        }
-                    }
-                    Err(err) => self.error(err),
+            Err(err) => self.error(err),
+            Ok(_) => {}
+        }
+        let tokens = scanner.tokens;
+        let mut parser = Parser::new(self, tokens);
+        match parser.parse() {
+            Ok(expr) => {
+                // println!("{}", ast_to_string(Box::new(expr)))
+                if let Err(e) = self.interpreter.interpret(expr) {
+                    self.error(e)
                 }
             }
             Err(err) => self.error(err),
@@ -133,7 +126,7 @@ impl Lox {
         self.had_error = true;
     }
 
-    fn error_token<T: Display>(&mut self, token: Token, message: &T) {
+    fn error_token<T: Display>(&mut self, token: RcToken, message: &T) {
         if matches!(token.type_, TokenType::EOF) {
             self.report(token.line, &"at end", message);
         } else {

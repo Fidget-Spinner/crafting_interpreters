@@ -80,7 +80,7 @@ pub type VoidResult = Result<(), LoxError<String>>;
 macro_rules! operand_err {
     ($operator:tt) => {
         Err(LoxError::RuntimeError {
-            token: *($operator).clone(),
+            token: Rc::clone(&$operator),
             message: format!("{:?} operands must be a number(s)", $operator.type_),
         })
     };
@@ -125,7 +125,7 @@ impl Interpreter {
         );
         let global_env = Rc::new(RefCell::new(globals));
         Interpreter {
-            environment: global_env.clone(),
+            environment: Rc::clone(&global_env),
             globals: global_env,
         }
     }
@@ -152,7 +152,10 @@ impl Interpreter {
                 body: _,
             } => {
                 let name_copy = name.lexeme.to_owned();
-                let function = LoxFunction { declaration: stmt, closure: Rc::clone(&self.environment)};
+                let function = LoxFunction {
+                    declaration: stmt,
+                    closure: Rc::clone(&self.environment),
+                };
                 self.environment.borrow_mut().define(
                     name_copy,
                     Some(Rc::from(ExprValue::LoxCallable(Box::new(function)))),
@@ -234,27 +237,24 @@ impl Interpreter {
                 let eval_callee = self.evaluate(callee)?;
 
                 let mut eval_arguments: Vec<Rc<ExprValue>> = Vec::with_capacity(arguments.len());
-                for argument in arguments.iter() {
-                    eval_arguments.push(self.evaluate(argument.clone())?);
+                let arg_len = arguments.len();
+                for argument in arguments.into_iter() {
+                    eval_arguments.push(self.evaluate(argument)?);
                 }
                 let function = match &*eval_callee.borrow() {
                     ExprValue::LoxCallable(function) => function.clone(),
                     _ => {
                         return Err(LoxError::RuntimeError {
-                            token: *paren,
+                            token: paren,
                             message: String::from("Can only call functions and classes."),
                         });
                     }
                 };
                 let arity = function.arity();
-                if arguments.len() != arity {
+                if arg_len != arity {
                     return Err(LoxError::RuntimeError {
-                        token: *paren,
-                        message: format!(
-                            "Expected {} arguments but got {}.",
-                            arity,
-                            arguments.len()
-                        ),
+                        token: paren,
+                        message: format!("Expected {} arguments but got {}.", arity, arg_len),
                     });
                 }
                 Ok(Rc::from(function.call(self, eval_arguments)?))
@@ -283,7 +283,7 @@ impl Interpreter {
             Expr::Variable { name } => self.environment.borrow_mut().get(&name),
         }
     }
-    fn interpret_expr_unary(&mut self, operator: Box<Token>, right: Box<Expr>) -> ExprValueResult {
+    fn interpret_expr_unary(&mut self, operator: RcToken, right: Box<Expr>) -> ExprValueResult {
         let res = self.evaluate(right)?;
         return match operator.type_ {
             TokenType::MINUS => {
@@ -301,11 +301,11 @@ impl Interpreter {
     fn interpret_expr_binary(
         &mut self,
         left: Box<Expr>,
-        operator: Box<Token>,
+        operator: RcToken,
         right: Box<Expr>,
     ) -> ExprValueResult {
-        let res_left = self.evaluate(left.clone())?;
-        let res_right = self.evaluate(right.clone())?;
+        let res_left = self.evaluate(left)?;
+        let res_right = self.evaluate(right)?;
         macro_rules! binary_op_numeric_generic {
             ($op:tt, $type_:tt) => {
                 if let (Some(num_left), Some(num_right)) = (res_left.get_number(), res_right.get_number()) {
@@ -360,7 +360,7 @@ impl Interpreter {
                     ))));
                 }
                 return Err(LoxError::RuntimeError {
-                    token: *(operator.clone()),
+                    token: Rc::clone(&operator),
                     message: format!("{:?} operand must be numbers or strings", operator.type_),
                 });
             }

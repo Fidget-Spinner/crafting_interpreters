@@ -50,3 +50,4 @@ pub enum TokenType {
 
     EOF,
 }
+

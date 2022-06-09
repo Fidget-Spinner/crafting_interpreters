@@ -3,6 +3,7 @@ use super::token_type::TokenType;
 use std::any::Any;
 #[allow(unused_imports)]
 use std::str;
+use std::rc::Rc;
 
 #[allow(dead_code)]
 #[allow(non_camel_case_types)]
@@ -42,6 +43,8 @@ impl Token {
         )
     }
 }
+
+pub type RcToken = Rc<Token>;
 
 impl Literal {
     pub fn to_string(&self) -> String {

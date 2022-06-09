@@ -7,7 +7,7 @@ use std::rc::Rc;
 pub fn main() {
     let expression = Box::new(Expr::Binary {
         left: Box::new(Expr::Unary {
-            operator: Box::new(Token::new(
+            operator: Rc::new(Token::new(
                 TokenType::MINUS,
                 "-".as_bytes().to_vec(),
                 Literal::NIL,
@@ -15,7 +15,7 @@ pub fn main() {
             )),
             right: Box::new(Expr::Literal(Literal::NUMBER(123.0))),
         }),
-        operator: Box::new(Token::new(
+        operator: Rc::new(Token::new(
             TokenType::STAR,
             "*".as_bytes().to_vec(),
             Literal::NIL,
@@ -30,12 +30,12 @@ pub fn main() {
 
 pub fn ast_to_string(expr: Box<Expr>) -> String {
     match *expr {
-        Expr::Assign { name, value: _ } => name.lexeme,
+        Expr::Assign { name, value: _ } => name.lexeme.clone(),
         Expr::Binary {
             left,
             operator,
             right,
-        } => parenthesize(operator.lexeme, vec![left, right]),
+        } => parenthesize(operator.lexeme.clone(), vec![left, right]),
         Expr::Call {
             callee: _,
             paren: _,
@@ -47,9 +47,9 @@ pub fn ast_to_string(expr: Box<Expr>) -> String {
             left,
             operator,
             right,
-        } => parenthesize(operator.lexeme, vec![left, right]),
-        Expr::Unary { operator, right } => parenthesize(operator.lexeme, vec![right]),
-        Expr::Variable { name } => name.lexeme,
+        } => parenthesize(operator.lexeme.clone(), vec![left, right]),
+        Expr::Unary { operator, right } => parenthesize(operator.lexeme.clone(), vec![right]),
+        Expr::Variable { name } => name.lexeme.clone(),
     }
 }
 

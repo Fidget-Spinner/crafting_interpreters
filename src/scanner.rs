@@ -1,9 +1,10 @@
 use crate::lox::LoxError;
-use crate::token::{Literal, Token};
+use crate::token::{Literal, RcToken, Token};
 use crate::token_type::TokenType;
 use crate::token_type::TokenType::*;
 
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::str;
 
 trait Sub {
@@ -35,7 +36,7 @@ impl Alpha for u8 {
 
 pub struct Scanner {
     source: Vec<u8>,
-    tokens: Vec<Token>,
+    pub tokens: Vec<RcToken>,
     start: usize,
     current: usize,
     line: usize,
@@ -87,14 +88,18 @@ impl Scanner {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> Result<&Vec<Token>, LoxError<&'static str>> {
+    pub fn scan_tokens(&mut self) -> Result<(), LoxError<&'static str>> {
         while !self.is_at_end() {
             self.start = self.current;
             self.scan_token()?;
         }
-        self.tokens
-            .push(Token::new(EOF, Vec::new(), Literal::NIL, self.line));
-        Ok(&self.tokens)
+        self.tokens.push(Rc::from(Token::new(
+            EOF,
+            Vec::new(),
+            Literal::NIL,
+            self.line,
+        )));
+        Ok(())
     }
 
     #[inline(always)]
@@ -167,8 +172,12 @@ impl Scanner {
 
     fn add_token_literal(&mut self, type_: TokenType, literal: Literal) {
         let text = &self.source[self.start..self.current];
-        self.tokens
-            .push(Token::new(type_, text.to_vec(), literal, self.line));
+        self.tokens.push(Rc::from(Token::new(
+            type_,
+            text.to_vec(),
+            literal,
+            self.line,
+        )));
     }
 
     fn add_token(&mut self, type_: TokenType) {

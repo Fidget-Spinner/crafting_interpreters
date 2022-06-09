@@ -4,10 +4,11 @@ use crate::stmt::Stmt;
 use crate::token::*;
 use crate::token_type::TokenType::*;
 use std::fmt::Display;
+use std::rc::Rc;
 
 pub struct Parser<'a> {
     lox: &'a mut Lox,
-    tokens: Vec<Box<Token>>,
+    tokens: Vec<RcToken>,
     current: usize,
 }
 
@@ -55,7 +56,7 @@ macro_rules! consume {
 
 #[allow(dead_code)]
 impl Parser<'_> {
-    pub fn new(lox: &mut Lox, tokens: Vec<Box<Token>>) -> Parser {
+    pub fn new(lox: &mut Lox, tokens: Vec<RcToken>) -> Parser {
         Parser {
             lox,
             tokens,
@@ -226,7 +227,7 @@ impl Parser<'_> {
     fn function(&mut self, kind: &'static str) -> StmtResult {
         let name = consume!(self, IDENTIFIER, "Expect {} name.", kind)?;
         consume!(self, LEFT_PAREN, "Expect '(' after {} name.", kind)?;
-        let mut parameters: Vec<Box<Token>> = Vec::new();
+        let mut parameters: Vec<RcToken> = Vec::new();
         if !check!(self, RIGHT_PAREN) {
             loop {
                 if parameters.len() >= 255 {
@@ -317,7 +318,7 @@ impl Parser<'_> {
         }
         Ok(expr)
     }
-    fn advance(&mut self) -> Box<Token> {
+    fn advance(&mut self) -> RcToken {
         if !self.is_at_end() {
             self.current += 1;
         }
@@ -420,7 +421,7 @@ impl Parser<'_> {
             return Ok(Expr::Literal(Literal::NIL));
         }
         if match_!(self, NUMBER | STRING) {
-            return Ok(Expr::Literal(self.previous().literal));
+            return Ok(Expr::Literal(self.previous().literal.clone()));
         }
         if match_!(self, IDENTIFIER) {
             return Ok(Expr::Variable {
@@ -444,16 +445,16 @@ impl Parser<'_> {
         self.current >= self.tokens.len() || matches!(self.peek().type_, EOF)
     }
     #[inline(always)]
-    fn peek(&self) -> &Token {
+    fn peek(&self) -> &RcToken {
         &self.tokens[self.current]
     }
     #[inline(always)]
-    fn previous(&self) -> Box<Token> {
-        self.tokens[self.current - 1].clone()
+    fn previous(&self) -> RcToken {
+        Rc::clone(&self.tokens[self.current - 1])
     }
-    fn error<T: Display>(token: &Token, message: T) -> LoxError<T> {
+    fn error<T: Display>(token: &RcToken, message: T) -> LoxError<T> {
         LoxError::ParseError {
-            token: token.clone(),
+            token: Rc::clone(token),
             message,
         }
     }
