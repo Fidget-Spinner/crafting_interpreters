@@ -55,12 +55,12 @@ pub fn ast_to_string(expr: Box<Expr>) -> String {
 
 fn parenthesize(name: String, exprs: Vec<Box<Expr>>) -> String {
     let mut builder: String = String::with_capacity(2 + exprs.len() * 2);
-    builder.push_str("(");
+    builder.push('(');
     builder.push_str(&name);
     for expr in exprs {
-        builder.push_str(" ");
+        builder.push(' ');
         builder.push_str(&ast_to_string(expr));
     }
-    builder.push_str(")");
+    builder.push(')');
     builder
 }
