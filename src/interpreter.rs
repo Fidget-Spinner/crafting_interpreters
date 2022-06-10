@@ -121,9 +121,9 @@ impl Interpreter {
         let mut globals = Environment::new(None);
         globals.define(
             String::from("clock"),
-            Some(Rc::new(ExprValue::LoxCallable(Rc::from(Clock())))),
+            Some(Rc::from(ExprValue::LoxCallable(Rc::from(Clock())))),
         );
-        let global_env = Rc::new(RefCell::new(globals));
+        let global_env = Rc::from(RefCell::new(globals));
         Interpreter {
             environment: Rc::clone(&global_env),
             globals: global_env,
@@ -140,7 +140,7 @@ impl Interpreter {
             Stmt::Block { statements } => {
                 self.execute_block(
                     Rc::clone(statements),
-                    Rc::new(RefCell::new(Environment::new(Some(&self.environment)))),
+                    Rc::from(RefCell::new(Environment::new(Some(&self.environment)))),
                 )?;
             }
             Stmt::Expression { expr } => {
@@ -191,8 +191,7 @@ impl Interpreter {
                     .define(name.lexeme.to_owned(), value);
             }
             Stmt::While { condition, body } => {
-                // @TODO: This is uneccessary cloning, use Rc or something.
-                while Interpreter::is_truthy(&self.evaluate(condition.clone())?) {
+                while Interpreter::is_truthy(&self.evaluate(Rc::clone(condition))?) {
                     self.execute(Rc::clone(body))?;
                 }
             }
@@ -257,10 +256,10 @@ impl Interpreter {
                         message: format!("Expected {} arguments but got {}.", arity, arg_len),
                     });
                 }
-                Ok(Rc::from(function.call(self, eval_arguments)?))
+                Ok(function.call(self, eval_arguments)?)
             }
             Expr::Grouping(expr) => self.evaluate(Rc::clone(expr)),
-            Expr::Literal(literal) => Ok(Rc::new(ExprValue::Literal(literal.clone()))),
+            Expr::Literal(literal) => Ok(Rc::from(ExprValue::Literal(literal.clone()))),
             Expr::Logical {
                 left,
                 operator,
@@ -290,11 +289,11 @@ impl Interpreter {
         return match operator.type_ {
             TokenType::MINUS => {
                 if let Some(num) = res.get_number() {
-                    return Ok(Rc::new(ExprValue::Literal(Literal::NUMBER(-num))));
+                    return Ok(Rc::from(ExprValue::Literal(Literal::NUMBER(-num))));
                 }
                 return operand_err!(operator);
             }
-            TokenType::BANG => Ok(Rc::new(ExprValue::Literal(Literal::BOOL(
+            TokenType::BANG => Ok(Rc::from(ExprValue::Literal(Literal::BOOL(
                 !Interpreter::is_truthy(&res),
             )))),
             _ => unreachable!("Invalid unary operator"),
@@ -311,7 +310,7 @@ impl Interpreter {
         macro_rules! binary_op_numeric_generic {
             ($op:tt, $type_:tt) => {
                 if let (Some(num_left), Some(num_right)) = (res_left.get_number(), res_right.get_number()) {
-                    return Ok(Rc::new(ExprValue::Literal(Literal::$type_(num_left $op num_right))));
+                    return Ok(Rc::from(ExprValue::Literal(Literal::$type_(num_left $op num_right))));
                 }
             };
         }
@@ -342,10 +341,10 @@ impl Interpreter {
                 binary_bool_op!(<=);
                 return operand_err!(operator);
             }
-            TokenType::BANG_EQUAL => Ok(Rc::new(ExprValue::Literal(Literal::BOOL(
+            TokenType::BANG_EQUAL => Ok(Rc::from(ExprValue::Literal(Literal::BOOL(
                 res_left != res_right,
             )))),
-            TokenType::EQUAL_EQUAL => Ok(Rc::new(ExprValue::Literal(Literal::BOOL(
+            TokenType::EQUAL_EQUAL => Ok(Rc::from(ExprValue::Literal(Literal::BOOL(
                 res_left == res_right,
             )))),
             TokenType::MINUS => {
@@ -357,7 +356,7 @@ impl Interpreter {
                 if let (Some(str_left), Some(str_right)) =
                     (res_left.get_string(), res_right.get_string())
                 {
-                    return Ok(Rc::new(ExprValue::Literal(Literal::STRING(
+                    return Ok(Rc::from(ExprValue::Literal(Literal::STRING(
                         str_left.to_owned() + str_right,
                     ))));
                 }
