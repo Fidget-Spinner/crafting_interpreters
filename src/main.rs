@@ -8,6 +8,7 @@ mod interpreter;
 mod lox;
 mod lox_function;
 mod parser;
+// mod resolver;
 mod scanner;
 mod stmt;
 mod token;

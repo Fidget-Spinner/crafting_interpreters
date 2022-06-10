@@ -12,18 +12,6 @@ pub struct Environment {
 }
 type OptionExprValue = Option<Rc<ExprValue>>;
 
-macro_rules! insert {
-    ($self:ident, $name:expr, $value:ident) => {
-        if let Some(v) = $value {
-            $self.values.insert($name, v);
-        } else {
-            $self
-                .values
-                .insert($name, Rc::new(ExprValue::Literal(Literal::NIL)));
-        }
-    };
-}
-
 impl Environment {
     pub fn new(enclosing: Option<&Rc<RefCell<Environment>>>) -> Self {
         Environment {
@@ -38,7 +26,12 @@ impl Environment {
         }
     }
     pub fn define(&mut self, name: String, value: OptionExprValue) {
-        insert!(self, name, value);
+        if let Some(v) = value {
+            self.values.insert(name, v);
+        } else {
+            self.values
+                .insert(name, Rc::from(ExprValue::Literal(Literal::NIL)));
+        }
     }
     pub fn get(&self, name: &RcToken) -> Result<Rc<ExprValue>, LoxError<String>> {
         if self.values.contains_key(&name.lexeme) {
@@ -60,7 +53,12 @@ impl Environment {
         value: OptionExprValue,
     ) -> Result<(), LoxError<String>> {
         if self.values.contains_key(&name.lexeme) {
-            insert!(self, name.lexeme.to_owned(), value);
+            let val = self.values.get_mut(&name.lexeme).unwrap();
+            *val = if let Some(v) = value {
+                v
+            } else {
+                Rc::from(ExprValue::Literal(Literal::NIL))
+            };
             return Ok(());
         }
 

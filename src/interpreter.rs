@@ -5,7 +5,6 @@ use crate::lox_function::LoxFunction;
 use crate::stmt::{RcStmt, Stmt};
 use crate::token::*;
 use crate::token_type::TokenType;
-use dyn_clone::{clone_trait_object, DynClone};
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -49,14 +48,12 @@ impl PartialEq for ExprValue {
     }
 }
 
-pub trait LoxCallable: Debug + DynClone {
+pub trait LoxCallable: Debug {
     fn arity(&self) -> usize;
     fn call(&self, interpreter: &mut Interpreter, arguments: Vec<Rc<ExprValue>>)
         -> ExprValueResult;
     fn to_string(&self) -> String;
 }
-
-clone_trait_object!(LoxCallable);
 
 impl PartialEq for dyn LoxCallable {
     fn eq(&self, other: &Self) -> bool {
@@ -237,11 +234,11 @@ impl Interpreter {
 
                 let mut eval_arguments: Vec<Rc<ExprValue>> = Vec::with_capacity(arguments.len());
                 let arg_len = arguments.len();
-                for argument in arguments.into_iter() {
+                for argument in arguments.iter() {
                     eval_arguments.push(self.evaluate(Rc::clone(argument))?);
                 }
                 let function = match &*eval_callee.borrow() {
-                    ExprValue::LoxCallable(function) => function.clone(),
+                    ExprValue::LoxCallable(function) => function,
                     _ => {
                         return Err(LoxError::RuntimeError {
                             token: Rc::clone(paren),
