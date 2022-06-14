@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 #[allow(non_camel_case_types)]
 #[allow(dead_code)]
 pub enum TokenType {
@@ -50,4 +50,3 @@ pub enum TokenType {
 
     EOF,
 }
-

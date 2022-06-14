@@ -3,6 +3,7 @@ fun makeCounter() {
   fun count() {
     i = i + 1;
     print i;
+    return;
   }
 
   return count;

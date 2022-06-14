@@ -33,6 +33,20 @@ impl Environment {
                 .insert(name, Rc::from(ExprValue::Literal(Literal::NIL)));
         }
     }
+    pub fn ancestor(self_: &Rc<RefCell<Environment>>, distance: usize) -> Rc<RefCell<Environment>> {
+        let mut env = Rc::clone(self_);
+        for _ in 0..distance {
+            env = Rc::clone(Rc::clone(&env).borrow().enclosing.as_ref().unwrap());
+        }
+        env
+    }
+    pub fn get_at(
+        self_: &Rc<RefCell<Environment>>,
+        distance: usize,
+        name: &RcToken,
+    ) -> Result<Rc<ExprValue>, LoxError<String>> {
+        Environment::ancestor(self_, distance).borrow().get(name)
+    }
     pub fn get(&self, name: &RcToken) -> Result<Rc<ExprValue>, LoxError<String>> {
         if self.values.contains_key(&name.lexeme) {
             return Ok(Rc::clone(self.values.get(&name.lexeme).unwrap()));

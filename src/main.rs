@@ -8,20 +8,22 @@ mod interpreter;
 mod lox;
 mod lox_function;
 mod parser;
-// mod resolver;
+mod resolver;
 mod scanner;
 mod stmt;
 mod token;
 mod token_type;
 
 use crate::interpreter::Interpreter;
+use std::cell::RefCell;
 #[allow(unused_imports)]
 use std::env;
 use std::process;
+use std::rc::Rc;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let interpreter = Interpreter::new();
+    let interpreter = Rc::from(RefCell::from(Interpreter::new()));
     let mut lox_runtime = lox::Lox {
         had_error: false,
         had_runtime_error: false,

@@ -8,8 +8,9 @@ use std::rc::Rc;
 
 // use crate::ast_printer::ast_to_string;
 // use crate::expr::Expr;
-use crate::interpreter::{ExprValue, Interpreter};
+use crate::interpreter::{ExprValue, SharedInterpreter};
 use crate::parser::Parser;
+use crate::resolver::Resolver;
 use crate::scanner::Scanner;
 use crate::token::RcToken;
 use crate::token_type::TokenType;
@@ -60,7 +61,7 @@ impl<T: Display> Display for LoxError<T> {
 pub struct Lox {
     pub had_error: bool,
     pub had_runtime_error: bool,
-    pub interpreter: Interpreter,
+    pub interpreter: SharedInterpreter,
 }
 
 impl Lox {
@@ -100,16 +101,24 @@ impl Lox {
             self.error(err);
             return;
         }
+
         let tokens = scanner.tokens;
         let mut parser = Parser::new(self, tokens);
-        match parser.parse() {
-            Ok(expr) => {
-                // println!("{}", ast_to_string(Box::new(expr)))
-                if let Err(e) = self.interpreter.interpret(expr) {
-                    self.error(e)
-                }
-            }
-            Err(err) => self.error(err),
+        let res = parser.parse();
+        if let Err(e) = res {
+            self.error(e);
+            return;
+        }
+        let expr = res.unwrap();
+        let mut resolver = Resolver::new(&self.interpreter);
+        if let Err(e) = resolver.resolve_statements(&expr) {
+            self.error(e);
+            return;
+        }
+        let res = self.interpreter.borrow_mut().interpret(expr);
+        // println!("{}", ast_to_string(Box::new(expr)))
+        if let Err(e) = res {
+            self.error(e)
         }
     }
     pub fn error<T: Display>(&mut self, err: LoxError<T>) {

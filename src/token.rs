@@ -1,8 +1,7 @@
 use super::token_type::TokenType;
-#[allow(unused_imports)]
-use std::any::Any;
+use std::hash::{Hash, Hasher};
+use std::mem;
 use std::rc::Rc;
-#[allow(unused_imports)]
 use std::str;
 
 #[allow(dead_code)]
@@ -16,8 +15,37 @@ pub enum Literal {
     NIL,
 }
 
+impl Hash for Literal {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Literal::IDENTIFIER(s) => s.hash(state),
+            Literal::STRING(s) => s.hash(state),
+            Literal::BOOL(b) => b.hash(state),
+            Literal::NIL => state.write_u8(1),
+            Literal::NUMBER(f) => integer_decode(f.clone()).hash(state),
+        }
+    }
+}
+
+impl Eq for Literal {}
+
+/* Code from https://stackoverflow.com/questions/39638363/how-can-i-use-a-hashmap-with-f64-as-key-in-rust */
+fn integer_decode(val: f64) -> (u64, i16, i8) {
+    let bits: u64 = unsafe { mem::transmute(val) };
+    let sign: i8 = if bits >> 63 == 0 { 1 } else { -1 };
+    let mut exponent: i16 = ((bits >> 52) & 0x7ff) as i16;
+    let mantissa = if exponent == 0 {
+        (bits & 0xfffffffffffff) << 1
+    } else {
+        (bits & 0xfffffffffffff) | 0x10000000000000
+    };
+
+    exponent -= 1023 + 52;
+    (mantissa, exponent, sign)
+}
+
 #[allow(dead_code)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct Token {
     pub type_: TokenType,
     pub lexeme: String,

@@ -7,6 +7,7 @@ use crate::token::*;
 use crate::token_type::TokenType;
 use std::borrow::Borrow;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -108,9 +109,12 @@ impl LoxCallable for Clock {
     }
 }
 
+pub type SharedInterpreter = Rc<RefCell<Interpreter>>;
+
 pub struct Interpreter {
     environment: Rc<RefCell<Environment>>,
     pub globals: Rc<RefCell<Environment>>,
+    locals: HashMap<RcExpr, usize>,
 }
 
 impl Interpreter {
@@ -124,6 +128,7 @@ impl Interpreter {
         Interpreter {
             environment: Rc::clone(&global_env),
             globals: global_env,
+            locals: HashMap::new(),
         }
     }
     pub fn interpret(&mut self, statements: Vec<RcStmt>) -> VoidResult {
@@ -278,7 +283,7 @@ impl Interpreter {
             Expr::Unary { operator, right } => {
                 self.interpret_expr_unary(Rc::clone(operator), Rc::clone(right))
             }
-            Expr::Variable { name } => self.environment.borrow_mut().get(&name),
+            Expr::Variable { name } => self.lookup_variable(name, &expr),
         }
     }
     fn interpret_expr_unary(&mut self, operator: RcToken, right: RcExpr) -> ExprValueResult {
@@ -384,6 +389,18 @@ impl Interpreter {
         match object.borrow() {
             ExprValue::Literal(l) => l.to_string(),
             ExprValue::LoxCallable(c) => c.to_string(),
+        }
+    }
+    pub fn resolve(&mut self, expr: &RcExpr, depth: usize) {
+        self.locals.insert(Rc::clone(expr), depth);
+    }
+    fn lookup_variable(&mut self, name: &RcToken, expr: &RcExpr) -> ExprValueResult {
+        let distance = self.locals.get(expr);
+        println!("{:?}", distance);
+        if let Some(d) = distance {
+            Environment::get_at(&self.environment, *d, name)
+        } else {
+            (*self.globals).borrow().get(name)
         }
     }
 }

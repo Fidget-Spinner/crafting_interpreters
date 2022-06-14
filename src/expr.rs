@@ -1,7 +1,7 @@
 use crate::token::*;
 use std::rc::Rc;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Hash, Clone, Debug, Eq)]
 pub enum Expr {
     Assign {
         name: RcToken,
